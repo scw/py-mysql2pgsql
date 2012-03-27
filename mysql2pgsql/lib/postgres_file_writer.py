@@ -35,7 +35,7 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 """)
         if self.schema:
-            self.f.write('SET search_path TO %s;' % self.schema)
+            self.f.write('CREATE SCHEMA %s; SET search_path TO %s;' % (self.schema, self.schema))
  
     @status_logger
     def truncate(self, table):
@@ -50,7 +50,7 @@ SET client_min_messages = warning;
         self.f.write("""
 -- TRUNCATE %(table_name)s;
 %(truncate_sql)s
-""" % {'table_name': table.name, 'truncate_sql': truncate_sql})
+""" % {'table_name': super(self.__class__, self).normalize_name(table.name), 'truncate_sql': truncate_sql})
 
         if serial_key_sql:
             self.f.write("""
@@ -79,7 +79,7 @@ SET client_min_messages = warning;
 -- Table: %(table_name)s
 %(table_sql)s
 """ % {
-    'table_name': table.name,
+    'table_name': super(self.__class__, self).normalize_name(table.name),
     'table_sql': '\n'.join(table_sql),
     })
 
@@ -128,8 +128,9 @@ SET client_min_messages = warning;
 
 COPY "%(table_name)s" (%(column_names)s) FROM stdin;
 """ % {
-                'table_name': table.name,
-                'column_names': ', '.join(('"%s"' % col['name']) for col in table.columns)})
+                'table_name': super(self.__class__, self).normalize_name(table.name),
+                'column_names': ', '.join(('"%s"' % super(self.__class__, self).normalize_name(col['name'])) for col in table.columns)})
+
         if verbose:
             tt = time.time
             start_time = tt()

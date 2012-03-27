@@ -109,7 +109,7 @@ class PostgresDbWriter(PostgresWriter):
     def copy_from(self, file_obj, table_name, columns):
         with closing(self.conn.cursor()) as cur:
             cur.copy_from(file_obj,
-                          table=table_name,
+                          table=super(self.__class__, self).normalize_name(table_name),
                           columns=columns
                           )
     
@@ -187,4 +187,4 @@ class PostgresDbWriter(PostgresWriter):
         Returns None
         """
         f = self.FileObjFaker(table, reader.read(table), self.process_row, self.verbose)
-        self.copy_from(f, '"%s"' % table.name, ['"%s"' % c['name'] for c in table.columns])
+        self.copy_from(f, '"%s"' % super(self.__class__, self).normalize_name(table.name), ['"%s"' % self(self.__class__, self).normalize_name(c['name']) for c in table.columns])

@@ -214,18 +214,18 @@ class PostgresWriter(Writer):
         if primary_index:
             index_sql.append('ALTER TABLE "%(table_name)s" ADD CONSTRAINT "%(index_name)s_pkey" PRIMARY KEY(%(column_names)s);' % {
                     'table_name': self.normalize_name(table.name),
-                    'index_name': '%s_%s' % (self.normalize_name(table.name), '_'.join(re.sub('[\W]+', '', c) for c in primary_index[0]['columns'])),
-                    'column_names': ', '.join('%s' % col for col in primary_index[0]['columns']),
+                    'index_name': '%s_%s' % (self.normalize_name(table.name), '_'.join(self.normalize_name(re.sub('[\W]+', '', c)) for c in primary_index[0]['columns'])),
+                    'column_names': ', '.join('%s' % self.normalize_name(col) for col in primary_index[0]['columns']),
                     })
         for index in table.indexes:
             if 'primary' in index:
                 continue
             unique = 'UNIQUE ' if index.get('unique', None) else ''
             index_name = '%s_%s' % (self.normalize_name(table.name), '_'.join(index['columns']))
-            index_sql.append('DROP INDEX IF EXISTS "%s" CASCADE;' % index_name)
+            index_sql.append('DROP INDEX IF EXISTS "%s" CASCADE;' % self.normalize_name(index_name))
             index_sql.append('CREATE %(unique)sINDEX "%(index_name)s" ON "%(table_name)s" (%(column_names)s);' % {
                     'unique': unique,
-                    'index_name': index_name,
+                    'index_name': self.normalize_name(index_name),
                     'table_name': self.normalize_name(table.name),
                     'column_names': ', '.join('"%s"' % self.normalize_name(col) for col in index['columns']),
                     })
