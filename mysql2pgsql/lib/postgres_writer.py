@@ -13,8 +13,31 @@ class PostgresWriter(Writer):
     """Base class for :py:class:`mysql2pgsql.lib.postgres_file_writer.PostgresFileWriter`
     and :py:class:`mysql2pgsql.lib.postgres_db_writer.PostgresDbWriter`.
     """
+
+    def normalize_name(self, name):
+        """Fix mixed case naming to all lower case separated by underscores as per
+        Postgres best practices / personal preference
+        """
+        pattern_re = { 'acronym': '([A-Z]{2,})([a-z]+)',
+               'first_cap': '(.+)([A-Z][a-z]+)',
+               'last_cap': '([a-z0-9]+)([A-Z]+)',
+               'all_cap': '([A-Z]+)',}
+
+        pattern_order = ['acronym', 'first_cap', 'last_cap', 'all_cap']
+
+        match = None
+        for label in pattern_order:
+            pattern = pattern_re[label]
+            s = re.match(pattern, name)
+            if s:
+                match = s.groups()
+                break
+        if match is None or name.find('_') > 0:
+            match = [name]
+        return '_'.join([m.lower() for m in match])
+
     def column_description(self, column):
-        return '"%s" %s' % (column['name'], self.column_type_info(column))
+        return '"%s" %s' % (self.normalize_name(column['name']), self.column_type_info(column))
 
     def column_type(self, column):
         return self.column_type_info(column).split(" ")[0]
@@ -24,7 +47,7 @@ class PostgresWriter(Writer):
         """
         if column.get('auto_increment', None):
             return 'integer DEFAULT nextval(\'%s_%s_seq\'::regclass) NOT NULL' % (
-                   column['table_name'], column['name'])
+                   self.normalize_name(column['table_name']), self.normalize_name(column['name']))
 
         
         null = "" if column['null'] else " NOT NULL"
@@ -142,10 +165,10 @@ class PostgresWriter(Writer):
 
         for column in table.columns:
             if column['auto_increment']:
-                serial_key = column['name']
+                serial_key = self.normalize_name(column['name'])
                 maxval = 1 if column['maxval'] < 1 else column['maxval'] + 1
             if column['primary_key']:
-                primary_keys.append(column['name'])
+                primary_keys.append(self.normalize_name(column['name']))
             columns.write('  %s,\n' % self.column_description(column))
         return primary_keys, serial_key, maxval, columns.getvalue()[:-2]
 
@@ -156,15 +179,15 @@ class PostgresWriter(Writer):
 
         for column in table.columns:
             if column['auto_increment']:
-                serial_key = column['name']
+                serial_key = self.normalize_name(column['name'])
                 maxval = 1 if column['maxval'] < 1 else column['maxval'] + 1
 
-        truncate_sql = 'TRUNCATE "%s" CASCADE;' % table.name
+        truncate_sql = 'TRUNCATE "%s" CASCADE;' % self.normalize_name(table.name)
         serial_key_sql = None
 
         if serial_key:
             serial_key_sql = "SELECT pg_catalog.setval(pg_get_serial_sequence(%(table_name)s, %(serial_key)s), %(maxval)s, true);" % {
-                'table_name': QuotedString(table.name).getquoted(),
+                'table_name': QuotedString(self.normalize_name(table.name)).getquoted(),
                 'serial_key': QuotedString(serial_key).getquoted(),
                 'maxval': maxval}
 
@@ -175,14 +198,14 @@ class PostgresWriter(Writer):
         serial_key_sql = []
         table_sql = []
         if serial_key:
-            serial_key_seq = '%s_%s_seq' % (table.name, serial_key)
+            serial_key_seq = '%s_%s_seq' % (self.normalize_name(table.name), serial_key)
             serial_key_sql.append('DROP SEQUENCE IF EXISTS %s CASCADE;' % serial_key_seq)
             serial_key_sql.append("""CREATE SEQUENCE %s INCREMENT BY 1
                                   NO MAXVALUE NO MINVALUE CACHE 1;""" % serial_key_seq)
             serial_key_sql.append('SELECT pg_catalog.setval(%s, %s, true);' % (QuotedString(serial_key_seq).getquoted(), maxval))
 
-        table_sql.append('DROP TABLE IF EXISTS "%s" CASCADE;' % table.name)
-        table_sql.append('CREATE TABLE "%s" (\n%s\n)\nWITHOUT OIDS;' % (table.name, columns))
+        table_sql.append('DROP TABLE IF EXISTS "%s" CASCADE;' % self.normalize_name(table.name))
+        table_sql.append('CREATE TABLE "%s" (\n%s\n)\nWITHOUT OIDS;' % (self.normalize_name(table.name), columns))
         return (table_sql, serial_key_sql)
 
     def write_indexes(self, table):
@@ -190,21 +213,21 @@ class PostgresWriter(Writer):
         primary_index = [idx for idx in table.indexes if idx.get('primary', None)]
         if primary_index:
             index_sql.append('ALTER TABLE "%(table_name)s" ADD CONSTRAINT "%(index_name)s_pkey" PRIMARY KEY(%(column_names)s);' % {
-                    'table_name': table.name,
-                    'index_name': '%s_%s' % (table.name, '_'.join(re.sub('[\W]+', '', c) for c in primary_index[0]['columns'])),
+                    'table_name': self.normalize_name(table.name),
+                    'index_name': '%s_%s' % (self.normalize_name(table.name), '_'.join(re.sub('[\W]+', '', c) for c in primary_index[0]['columns'])),
                     'column_names': ', '.join('%s' % col for col in primary_index[0]['columns']),
                     })
         for index in table.indexes:
             if 'primary' in index:
                 continue
             unique = 'UNIQUE ' if index.get('unique', None) else ''
-            index_name = '%s_%s' % (table.name, '_'.join(index['columns']))
+            index_name = '%s_%s' % (self.normalize_name(table.name), '_'.join(index['columns']))
             index_sql.append('DROP INDEX IF EXISTS "%s" CASCADE;' % index_name)
             index_sql.append('CREATE %(unique)sINDEX "%(index_name)s" ON "%(table_name)s" (%(column_names)s);' % {
                     'unique': unique,
                     'index_name': index_name,
-                    'table_name': table.name,
-                    'column_names': ', '.join('"%s"' % col for col in index['columns']),
+                    'table_name': self.normalize_name(table.name),
+                    'column_names': ', '.join('"%s"' % self.normalize_name(col) for col in index['columns']),
                     })
         
         return index_sql
@@ -214,10 +237,10 @@ class PostgresWriter(Writer):
         for key in table.foreign_keys:
             constraint_sql.append("""ALTER TABLE "%(table_name)s" ADD FOREIGN KEY ("%(column_name)s")
             REFERENCES "%(ref_table_name)s"(%(ref_column_name)s);""" % {
-                'table_name': table.name,
-                'column_name': key['column'],
-                'ref_table_name': key['ref_table'],
-                'ref_column_name': key['ref_column']})
+                'table_name': self.normalize_name(table.name),
+                'column_name': self.normalize_name(key['column']),
+                'ref_table_name': self.normalize_name(key['ref_table']),
+                'ref_column_name': self.normalize_name(key['ref_column'])})
         return constraint_sql
 
     def close(self):
