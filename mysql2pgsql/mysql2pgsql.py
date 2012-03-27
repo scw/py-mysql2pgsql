@@ -23,6 +23,9 @@ class Mysql2Pgsql(object):
     def convert(self):
         reader = MysqlReader(self.file_options['mysql'])
 
+        if not self.file_options['destination'].has_key('schema'):
+            self.file_options['destination']['schema'] = None
+
         if self.file_options['destination']['file']:
             writer = PostgresFileWriter(self._get_file(self.file_options['destination']['file']), self.file_options['destination']['schema'], self.run_options.verbose)
         else:
