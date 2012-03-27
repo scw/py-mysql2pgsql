@@ -22,9 +22,11 @@ class PostgresFileWriter(PostgresWriter):
     
     """
     verbose = None
-    def __init__(self, output_file, verbose=False):
+    def __init__(self, output_file, schema=None, verbose=False):
         self.verbose = verbose
         self.f = output_file
+        self.schema = schema
+ 
         self.f.write("""
 -- MySQL 2 PostgreSQL dump\n
 SET client_encoding = 'UTF8';
@@ -32,7 +34,9 @@ SET standard_conforming_strings = off;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 """)
-
+        if self.schema:
+            self.f.write('SET search_path TO %s;' % self.schema)
+ 
     @status_logger
     def truncate(self, table):
         """Write DDL to truncate the specified `table`

@@ -70,7 +70,7 @@ class PostgresDbWriter(PostgresWriter):
             return self.readline(*args, **kwargs)
 
 
-    def __init__(self, db_options, verbose=False):
+    def __init__(self, db_options, schema=None, verbose=False):
         self.verbose = verbose
         self.db_options = {
             'host': db_options['hostname'],
@@ -79,10 +79,7 @@ class PostgresDbWriter(PostgresWriter):
             'password': db_options.get('password', None) or '',
             'user': db_options['username'],
             }
-        if ':' in db_options['database']:
-            self.db_options['database'], self.schema  = self.db_options['database'].split(':')
-        else:
-            self.schema = None
+        self.schema = schema
         self.open()
 
     def open(self):
