@@ -49,6 +49,7 @@ mysql:
 destination:
  # if file is given, output goes to file, else postgres
  file: 
+ schema:
  postgres:
   hostname: localhost
   port: 5432
