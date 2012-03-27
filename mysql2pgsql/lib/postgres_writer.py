@@ -18,12 +18,12 @@ class PostgresWriter(Writer):
         """Fix mixed case naming to all lower case separated by underscores as per
         Postgres best practices / personal preference
         """
-        pattern_re = { 'acronym': '([A-Z]{2,})([a-z]+)',
-               'first_cap': '(.+)([A-Z][a-z]+)',
-               'last_cap': '([a-z0-9]+)([A-Z0-9]+)',
-               'all_cap': '([A-Z]+)',}
+        pattern_re = { 'acronym': '([A-Z]{2,})([a-z0-9]+)$',
+            'acronym_long': '([A-Z]{2,})([a-z0-9]+)([A-Za-z0-9]+)',
+            'first_cap': '(.+)([A-Z][a-z0-9]+)',
+            'last_cap': '([a-z0-9]+)([A-Z0-9]+)$'}
 
-        pattern_order = ['acronym', 'first_cap', 'last_cap', 'all_cap']
+        pattern_order = ['acronym', 'acronym_long', 'last_cap', 'first_cap']
 
         match = None
         for label in pattern_order:
