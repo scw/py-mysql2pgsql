@@ -20,7 +20,7 @@ class PostgresWriter(Writer):
         """
         pattern_re = { 'acronym': '([A-Z]{2,})([a-z]+)',
                'first_cap': '(.+)([A-Z][a-z]+)',
-               'last_cap': '([a-z0-9]+)([A-Z]+)',
+               'last_cap': '([a-z0-9]+)([A-Z0-9]+)',
                'all_cap': '([A-Z]+)',}
 
         pattern_order = ['acronym', 'first_cap', 'last_cap', 'all_cap']
